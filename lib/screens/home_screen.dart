@@ -59,7 +59,7 @@ class _HomeScreenState extends State<HomeScreen> {
         await _loadUsageStats();
       } else {
         setState(() {
-          status = "Permission Required ❌ - Tap 'Grant Access'";
+          status = "Required Permission" ❌ - Tap 'Grant Access'";
         });
       }
     } catch (e) {
