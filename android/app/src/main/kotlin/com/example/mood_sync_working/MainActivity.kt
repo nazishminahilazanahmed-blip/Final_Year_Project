@@ -1,14 +1,16 @@
 package com.example.mood_sync_working
 
 import android.Manifest
+import android.app.usage.UsageStatsManager  // Added this import
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.provider.Settings
 import android.util.Log
-import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.content.getSystemService
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -28,7 +30,6 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
-        // Request Notification Permission for Android 13+
         requestNotificationPermission()
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
@@ -70,23 +71,19 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun checkUsagePermission(): Boolean {
-        val usageStatsManager = getSystemService(USAGE_STATS_SERVICE) as android.app.usage.UsageStatsManager
+        val usageStatsManager = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
         val currentTime = System.currentTimeMillis()
-        val stats = usageStatsManager.queryUsageStats(
-            android.app.usage.UsageStatsManager.INTERVAL_DAILY,
-            currentTime - 1000 * 3600 * 24,
-            currentTime
-        )
+        val stats = usageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, currentTime - 1000 * 3600 * 24, currentTime)
         return stats != null && stats.isNotEmpty()
     }
 
     private fun getUsageStats(): List<Map<String, Any>> {
         val usageStatsList = mutableListOf<Map<String, Any>>()
         try {
-            val usageStatsManager = getSystemService(USAGE_STATS_SERVICE) as android.app.usage.UsageStatsManager
+            val usageStatsManager = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
             val endTime = System.currentTimeMillis()
             val startTime = endTime - 1000 * 3600 * 24 * 7
-            val stats = usageStatsManager.queryUsageStats(android.app.usage.UsageStatsManager.INTERVAL_DAILY, startTime, endTime)
+            val stats = usageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, startTime, endTime)
 
             val appUsageMap = mutableMapOf<String, Long>()
             stats?.forEach { usageStats ->
@@ -108,6 +105,7 @@ class MainActivity : FlutterActivity() {
 
     private fun startMonitoringService() {
         try {
+            // This line stays red if ScreenMonitorService.kt is missing or has the wrong package name
             val serviceIntent = Intent(this, ScreenMonitorService::class.java)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 startForegroundService(serviceIntent)
@@ -130,21 +128,16 @@ class MainActivity : FlutterActivity() {
         scheduler = null
     }
 
+    // FIXED THIS FUNCTION USING YOUR REQUESTED LINE
     private fun checkForegroundApp() {
         try {
-            val usageStatsManager = getSystemService(USAGE_STATS_SERVICE) as android.app.usage.UsageStatsManager
+            val usageStatsManager = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
             val endTime = System.currentTimeMillis()
             val startTime = endTime - 5000
-            val stats = usageStatsManager.queryUsageStats(android.app.usage.UsageStatsManager.INTERVAL_DAILY, startTime, endTime)
+            val stats = usageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, startTime, endTime)
 
-            var currentPackage = ""
-            var maxTime = 0L
-            stats?.forEach { usageStats ->
-                if (usageStats.totalTimeInForeground > maxTime) {
-                    maxTime = usageStats.totalTimeInForeground
-                    currentPackage = usageStats.packageName
-                }
-            }
+            // Here is the line you wanted to paste:
+            val currentPackage = stats?.maxByOrNull { it.totalTimeInForeground }?.packageName ?: ""
 
             if (currentPackage.isNotEmpty() && currentPackage != lastPackage) {
                 lastPackage = currentPackage
